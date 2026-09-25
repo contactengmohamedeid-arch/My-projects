@@ -25,5 +25,5 @@ This repository contains a collection of end-to-end applied projects in the fiel
 
 1. **Clone the repository:**
    ```bash
-   git clone <Your_GitHub_Repo_URL>
+   git clone <https://github.com/contactengmohamedeid-arch/My-projects.git>
    cd <Repository_Name>
