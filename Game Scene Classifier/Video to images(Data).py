@@ -2,11 +2,11 @@ import cv2
 import os
 
 # اسم اللعبة اللي هنعملها الفولدر
-game_name = "Elden_Ring"
+game_name = "RE"
 os.makedirs(f"dataset/{game_name}", exist_ok=True)
 
 # مسار الفيديو اللي حملته
-video = cv2.VideoCapture('elden_ring_gameplay.mp4')
+video = cv2.VideoCapture(r'F:\Documents\ML & AI\Projects\Game Scene Classifier\dataset\Resident_Evil_vid\RE4.mp4')
 
 count = 0
 frame_rate = 30 # لو الفيديو 30 فريم في الثانية، كده هياخد صورة كل ثانية
@@ -22,4 +22,4 @@ while True:
         
     count += 1
 
-print("تم استخراج الصور بنجاح!")
+print("data has been extracted")
