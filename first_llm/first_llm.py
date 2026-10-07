@@ -1,13 +1,20 @@
-from transformers import pipeline
+from transformers import pipeline, set_seed
 
-# 1. استدعاء الموديل (الـ Decoder اللي اتكلمنا عنه)
+# استدعاء الموديل
 generator = pipeline('text-generation', model='gpt2')
 
-# 2. التلقين (Prompt)
+# التلقين
 prompt = "As an AI engineer, my next project will be"
 
-# 3. توليد الكلمات بناءً على السياق (Attention Mechanism)
-result = generator(prompt, max_length=50, num_return_sequences=1)
+# التوليد مع التحكم في الإبداع
+result = generator(
+    prompt,
+    max_new_tokens=50,        # عدد الكلمات الجديدة اللي هيولدها فقط
+    num_return_sequences=1,
+    do_sample=True,           # تفعيل الاختيار العشوائي الذكي
+    temperature=0.7,          # مؤشر الإبداع
+    pad_token_id=50256        # لإخفاء التحذير المزعج
+)
 
-# 4. طباعة النتيجة
+# طباعة النتيجة
 print(result[0]['generated_text'])
