@@ -152,4 +152,44 @@ class SimpleTokenizer:
         """
         return self.config.vocab_size
 
+#############################################################################################################################################################
 
+# ===== WHAT: Quick self-test =====
+# WHY: Always test each component in isolation before combining.
+#      "Does the tokenizer work?" is a 5-second check that saves
+#      hours of debugging a misbehaving training loop.
+if __name__ == "__main__":
+    tokenizer = SimpleTokenizer()
+
+    # Test 1: Basic text
+    test_text = "The cat sat on the mat."
+    encoded = tokenizer.encode(test_text)
+    decoded = tokenizer.decode(encoded)
+    print(f"Test 1 — Basic:")
+    print(f"  Original: '{test_text}'")
+    print(f"  Encoded:  {encoded}")
+    print(f"  Decoded:  '{decoded}'")
+    print(f"  Match:    {test_text == decoded}")
+
+    # Test 2: EOS token
+    eos = tokenizer.encode(tokenizer.eos_token)
+    print(f"\nTest 2 — EOS token:")
+    print(f"  String: '{tokenizer.eos_token}'")
+    print(f"  Token ID: {tokenizer.eos_token_id}")
+    print(f"  Encode result: {eos}")
+
+    # Test 3: Rare/unseen word
+    rare = tokenizer.encode("antidisestablishmentarianism")
+    decoded_rare = tokenizer.decode(rare)
+    print(f"\nTest 3 — Rare word:")
+    print(f"  Encoded: {rare}")
+    print(f"  Pieces:  {[tokenizer.decode([t]) for t in rare]}")
+    print(f"  Decoded: '{decoded_rare}'")
+
+    # Test 4: Emoji/Unicode
+    emoji = tokenizer.encode("Hello 😊 world")
+    print(f"\nTest 4 — Emoji:")
+    print(f"  Encoded: {emoji}")
+    print(f"  Decoded: '{tokenizer.decode(emoji)}'")
+
+    print(f"\n  Vocab size: {tokenizer.vocab_size:,}")
