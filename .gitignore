@@ -6,3 +6,8 @@ models/
 **/.vscode/
 *.mp4
 *.jpg
+# Python virtual environments
+gpt_env/
+.venv/
+venv/
+env/
