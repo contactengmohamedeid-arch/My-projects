@@ -1252,3 +1252,41 @@ def load_checkpoint(checkpoint_path: str, device: torch.device):
     print(f"Loaded model from step {checkpoint['step']}, "
           f"loss: {checkpoint['loss']:.4f}")
     return model
+
+def generate_text(
+    model,
+    tokenizer,
+    prompt: str,
+    max_new_tokens: int = 100,
+    temperature: float = 0.8,
+    top_k: int = 50,
+    top_p: float = 0.95,
+    device: torch.device = None,
+):
+    """
+    WHAT: Generate text from a prompt using a trained GPT model.
+    WHY: High-level interface — tokenize → generate → decode.
+
+    Parameter Guide:
+      temperature: 0.2 = factual, 0.8 = balanced, 1.5 = wild
+      top_k:       50 = standard, 10 = conservative, 0 = disabled
+      top_p:       0.9 = recommended, 0.5 = narrow, 1.0 = disabled
+    """
+    device = device or next(model.parameters()).device
+
+    # WHAT: Convert prompt string to token IDs
+    input_ids = torch.tensor(
+        [tokenizer.encode(prompt)], dtype=torch.long, device=device
+    )
+
+    # WHAT: Run autoregressive generation
+    output_ids = model.generate(
+        input_ids=input_ids,
+        max_new_tokens=max_new_tokens,
+        temperature=temperature,
+        top_k=top_k,
+        top_p=top_p,
+    )
+
+    # WHAT: Convert generated token IDs back to string
+    return tokenizer.decode(output_ids[0].tolist())
