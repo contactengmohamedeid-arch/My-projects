@@ -633,3 +633,33 @@ def create_causal_mask(seq_len: int, device: torch.device) -> torch.Tensor:
     """
     mask = torch.tril(torch.ones(seq_len, seq_len, device=device))
     return mask.view(1, 1, seq_len, seq_len)
+
+#############################################################################################################################################################
+
+class RMSNorm(nn.Module):
+    """
+    WHAT: Root Mean Square Layer Normalization.
+    WHY: Normalizes each token's representation so its magnitude is ~1.0.
+         Prevents values from growing/shrinking across deep networks.
+
+         Used in: LLaMA 1/2/3, Mistral, Gemma, Qwen
+    """
+
+    def __init__(self, d_model: int, eps: float = 1e-6):
+        super().__init__()
+        # WHAT: Learnable scale per dimension
+        # WHY: After forcing RMS=1, the model can learn to amplify
+        #      important dimensions and dampen unimportant ones.
+        #      Starts at 1.0 (no change initially).
+        self.weight = nn.Parameter(torch.ones(d_model))
+        self.eps = eps  # WHY: prevents division by zero
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # WHAT: Compute 1/sqrt(mean(x²))
+        # WHY: rsqrt is 1/sqrt — computed as a single CUDA kernel
+        #      for speed. The mean is over the last dimension (d_model).
+        #      keepdim=True preserves the dimension for broadcasting.
+        rms = torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)
+
+        # WHAT: Normalize then learnable-scale
+        return x * rms * self.weight
