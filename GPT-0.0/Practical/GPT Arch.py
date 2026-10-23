@@ -1072,3 +1072,34 @@ class CosineWarmupScheduler:
 
     def load_state_dict(self, state_dict):
         self.current_step = state_dict["current_step"]
+
+
+def create_optimizer(model, config):
+    """
+    WHAT: AdamW with two parameter groups (with/without weight decay).
+    WHY: Norm layers and biases should NOT get weight decay — it
+         pushes them toward zero, destroying normalization.
+
+    Group 1 (weight_decay > 0): Linear weights, embeddings
+    Group 2 (weight_decay = 0): Biases, RMSNorm, LayerNorm
+    """
+    decay_params = []
+    no_decay_params = []
+
+    for name, param in model.named_parameters():
+        if not param.requires_grad:
+            continue
+        if param.dim() <= 1 or "norm" in name.lower() or "bias" in name:
+            no_decay_params.append(param)
+        else:
+            decay_params.append(param)
+
+    return torch.optim.AdamW(
+        [
+            {"params": decay_params, "weight_decay": config.weight_decay},
+            {"params": no_decay_params, "weight_decay": 0.0},
+        ],
+        lr=config.learning_rate,
+        betas=config.betas,
+        eps=config.eps,
+    )
