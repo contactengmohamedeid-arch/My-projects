@@ -1207,3 +1207,22 @@ def train(model, train_dataset, config, device, save_dir="checkpoints"):
     print(f"{'='*60}\n")
     return loss_history
 
+
+
+def plot_loss(loss_history, save_path="loss_curve.png"):
+    """
+    WHAT: Visualize training progress.
+    WHY: Loss curves diagnose problems:
+         ↘ Steady decrease: training is working
+         → Flat line: stalled (higher LR, check data)
+         ↗ Increasing: overfitting (more dropout, weight decay)
+         ⚡ Spikes: unstable (lower LR, longer warmup)
+    """
+    steps, losses = zip(*loss_history)
+    plt.figure(figsize=(10, 5))
+    plt.plot(steps, losses)
+    plt.xlabel("Training Step"); plt.ylabel("Loss")
+    plt.title("GPT Training Loss")
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout(); plt.savefig(save_path, dpi=150); plt.close()
+    print(f"Loss curve saved to {save_path}")
