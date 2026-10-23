@@ -663,3 +663,45 @@ class RMSNorm(nn.Module):
 
         # WHAT: Normalize then learnable-scale
         return x * rms * self.weight
+
+class SwiGLU(nn.Module):
+    """
+    WHAT: SwiGLU — gated version of Swish activation.
+    WHY: The "gate" (right side of multiplication) learns to
+         selectively pass or block information — like a faucet.
+
+         Standard FFN:  output = W2(ReLU(W1(x)))
+         SwiGLU FFN:    output = W3(SiLU(W1(x)) * (W2(x)))
+                                   ^^^^^^^^      ^^^^^^
+                                   values        gate
+
+         The gate multiplies values: if gate ≈ 0, block info.
+                                     if gate ≈ 1, pass info.
+                                     if gate ≈ 0.5, partial pass.
+
+         This gating mechanism is what makes SwiGLU outperform
+         ReLU and GELU — the model learns WHERE to apply non-linearity.
+
+         Paper: "GLU Variants Improve Transformer" (Shazeer, 2020)
+         Used in: LLaMA 1/2/3, PaLM, Gemini
+    """
+
+    def __init__(self, d_model: int, expansion_factor: int = 4):
+        super().__init__()
+
+        # WHAT: Hidden dim is 4x input/output — the "expansion" bottleneck
+        # WHY: Expand→process→contract is more expressive than same-size.
+        #      784 → 3072 → 784 lets the FFN learn ~4x more complex patterns.
+        hidden_dim = expansion_factor * d_model
+
+        self.w1 = nn.Linear(d_model, hidden_dim, bias=False)   # Projects to values
+        self.w2 = nn.Linear(d_model, hidden_dim, bias=False)   # Projects to gates
+        self.w3 = nn.Linear(hidden_dim, d_model, bias=False)   # Projects back
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # WHAT: SiLU(w1(x)) are the values, w2(x) are the gates
+        # WHY: SiLU (also called Swish) = x * sigmoid(x)
+        #      It's smooth (unlike ReLU which has a sharp corner at 0),
+        #      which makes gradients flow better during training.
+        #      Gate multiplies values element-wise, selectively passing info.
+        return self.w3(F.silu(self.w1(x)) * self.w2(x))
