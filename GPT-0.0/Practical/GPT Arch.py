@@ -973,3 +973,51 @@ class GPT(nn.Module):
             loss = F.cross_entropy(logits_flat, targets_flat)
 
         return logits, loss
+
+#############################################################################################################################################################
+
+class TextDataset(Dataset):
+    """
+    WHAT: Prepares text data by splitting into training chunks.
+    WHY: The model learns to predict the next token. Each chunk
+         provides input-target pairs for next-token prediction.
+
+         Each sample: input[t] and target[t+1] for all positions t.
+         This is called "teacher forcing" — we show the correct
+         answer for every position during training.
+    """
+
+    def __init__(self, texts: list[str], tokenizer, max_seq_len: int = 1024):
+        self.tokenizer = tokenizer
+        self.max_seq_len = max_seq_len
+
+        # ===== Concatenate all texts with EOS separators =====
+        # WHY: EOS prevents the model from learning false connections
+        #      between unrelated documents.
+        all_tokens = []
+        for text in texts:
+            tokens = tokenizer.encode(text)
+            all_tokens.extend(tokens)
+            all_tokens.append(tokenizer.eos_token_id)  # Document boundary marker
+
+        self.tokens = torch.tensor(all_tokens, dtype=torch.long)
+        print(f"Total tokens in dataset: {len(self.tokens):,}")
+
+    def __len__(self) -> int:
+        """Number of chunks. Each uses max_seq_len+1 tokens."""
+        return (len(self.tokens) - 1) // self.max_seq_len
+
+    def __getitem__(self, idx: int) -> tuple:
+        """
+        Returns (input_ids, target_ids) for one chunk.
+        Target is shifted by 1 position:
+
+        tokens:    [The,  cat,  sat,  on,   the,  mat,  EOS,  The,  dog,  ...]
+        idx=0:     [The,  cat,  sat,  on,   the]     ← input_ids
+                   [cat,  sat,  on,   the,  mat]     ← target_ids (shifted)
+        """
+        start = idx * self.max_seq_len
+        end = start + self.max_seq_len
+        input_ids = self.tokens[start:end]
+        target_ids = self.tokens[start + 1 : end + 1]
+        return input_ids, target_ids
