@@ -763,7 +763,6 @@ class TransformerBlock(nn.Module):
         return x
 
 #############################################################################################################################################################
-
 @dataclass
 class GPTConfig:
     """
@@ -799,3 +798,178 @@ class GPTConfig:
             f"d_model ({self.d_model}) must be divisible by "
             f"num_heads ({self.num_heads})"
         )
+
+#############################################################################################################################################################
+
+class GPT(nn.Module):
+    """
+    WHAT: A complete decoder-only Transformer language model.
+    WHY: This single class combines everything we've built:
+         embedding → N× transformer blocks → output projection.
+
+         "Decoder-only" means it generates text left-to-right
+         (causal/autoregressive), without an encoder that would
+         look at the full sequence.
+
+         This is the same architecture family as:
+         GPT-2 (12 layers, 768 dims), GPT-3 (96 layers, 12288 dims),
+         LLaMA 3 (32-80 layers), Mistral (32 layers)
+    """
+
+    def __init__(self, config: GPTConfig):
+        super().__init__()
+        self.config = config
+
+        # ===== 1. TOKEN EMBEDDING =====
+        # WHAT: Lookup table: token ID → dense vector
+        # WHY: Converts integers (IDs) into the continuous vectors
+        #      that neural networks can work with.
+        #      Shape: [50257, 768] — one row per vocabulary token
+        self.token_embedding = nn.Embedding(config.vocab_size, config.d_model)
+
+        # WHAT: Dropout applied to embeddings
+        # WHY: Early dropout prevents the model from overfitting to
+        #      specific embedding values during training
+        self.embd_dropout = nn.Dropout(config.embd_dropout)
+
+        # ===== 2. TRANSFORMER BLOCKS =====
+        # WHAT: Stack of N identical transformer layers
+        # WHY: nn.ModuleList registers each block so PyTorch tracks
+        #      their parameters for training. A regular Python list
+        #      would NOT be tracked!
+        #
+        #      Each block: RMSNorm → Attention(+residual) → RMSNorm → FFN(+residual)
+        self.layers = nn.ModuleList([
+            TransformerBlock(
+                d_model=config.d_model,
+                num_heads=config.num_heads,
+                dropout=config.dropout
+            )
+            for _ in range(config.num_layers)
+        ])
+
+        # ===== 3. FINAL NORMALIZATION =====
+        # WHAT: One last RMSNorm before the output head
+        # WHY: The output of the last transformer block is raw (unnormalized).
+        #      We normalize before projecting to vocabulary so the
+        #      LM head gets clean, well-scaled inputs.
+        self.final_norm = RMSNorm(config.d_model)
+
+        # ===== 4. LM HEAD (output projection) =====
+        # WHAT: Linear projection: d_model → vocab_size
+        # WHY: Transforms each token's 768-dim "understanding"
+        #      into a 50257-dim vector of scores — one score per
+        #      possible next token.
+        #
+        #      logits[b, t, v] = "score for token v being the next
+        #                         word after position t in batch b"
+        self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
+
+        # ===== 5. WEIGHT TYING =====
+        # WHAT: Share weight matrix between embedding and LM head
+        # WHY: The embedding maps token → vector. The LM head maps
+        #      vector → token. These are INVERSE operations!
+        #
+        #      Sharing weights has three benefits:
+        #      1. Parameter efficiency: saves 50257×768 = 38.6M params
+        #         (30% of the total for GPT-2 small!)
+        #      2. Better regularization: the shared matrix gets
+        #         gradient signals from both directions, improving
+        #         the quality of token representations
+        #      3. Theoretical elegance: input and output tokens
+        #         live in the same semantic space
+        #
+        #      How it works: setting self.lm_head.weight to point to
+        #      the SAME tensor as self.token_embedding.weight means
+        #      PyTorch uses the same memory for both.
+        self.token_embedding.weight = self.lm_head.weight
+
+        # ===== 6. WEIGHT INITIALIZATION =====
+        # WHAT: Initialize all weights with Normal(0, 0.02)
+        # WHY: Starting from the right distribution is critical.
+        #      Too small → gradients vanish, model never learns.
+        #      Too large → activations saturate, gradients explode.
+        #      0.02 std gives values mostly in [-0.04, 0.04],
+        #      which is the sweet spot for Transformers.
+        self.apply(self._init_weights)
+        print(f"GPT initialized with {self.get_num_params():,} parameters")
+
+    def _init_weights(self, module: nn.Module):
+        """Initialize weights using the GPT-2 scheme."""
+        if isinstance(module, nn.Linear):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+
+    def get_num_params(self) -> int:
+        """Count total trainable parameters (weights + biases)."""
+        return sum(p.numel() for p in self.parameters())
+
+    def forward(
+        self,
+        input_ids: torch.Tensor,
+        targets: torch.Tensor = None
+    ) -> tuple:
+        """
+        WHAT: Process a batch of token sequences through the GPT model.
+
+        Args:
+            input_ids: [batch_size, seq_len] — token IDs for each sequence
+            targets:   [batch_size, seq_len] — same tokens, used for loss
+                       (the model predicts input_ids[t+1] from input_ids[t])
+
+        Returns:
+            logits: [batch, seq_len, vocab_size] — raw prediction scores
+            loss:   scalar — cross-entropy (None if targets not provided)
+
+        The dataset already provides shifted targets, so we compute the
+        loss on all positions directly (no manual slicing needed).
+        """
+        batch_size, seq_len = input_ids.shape
+
+        # ===== 1. EMBED TOKENS =====
+        # Input:  [batch, seq] token IDs
+        # Output: [batch, seq, d_model] continuous vectors
+        x = self.token_embedding(input_ids)
+        x = self.embd_dropout(x)
+
+        # ===== 2. CREATE CAUSAL MASK =====
+        # WHAT: Lower-triangular mask: token i can only see tokens 0..i
+        # WHY: Without this, the model would "cheat" by looking at
+        #      future tokens when predicting the next one.
+        mask = create_causal_mask(seq_len, input_ids.device)
+
+        # ===== 3. TRANSFORMER LAYERS =====
+        # WHAT: Pass through all N transformer blocks sequentially
+        # WHY: Each layer refines the representations. Early layers
+        #      capture syntax. Later layers capture semantics.
+        for layer in self.layers:
+            x = layer(x, mask)
+
+        # ===== 4. FINAL NORMALIZATION =====
+        x = self.final_norm(x)
+
+        # ===== 5. PROJECT TO VOCABULARY =====
+        # WHAT: Convert from d_model-dim "understanding" to vocab_size-dim scores
+        # WHY: Each position gets a score for every possible next token.
+        #
+        # Example: logits[0, 3, 2603] = 9.2 means:
+        #   "For batch 0, position 3, the score for token 2603 ('mat') is 9.2"
+        #   Higher score = model thinks this token is more likely.
+        logits = self.lm_head(x)  # [batch, seq_len, vocab_size]
+
+        # ===== 6. COMPUTE LOSS (training only) =====
+        loss = None
+        if targets is not None:
+            # WHAT: Flatten logits and targets, then compute cross-entropy.
+            # WHY: The dataset already provides shifted targets, so we
+            #      compute the loss on all positions directly.
+            logits_flat = logits.contiguous().view(
+                -1, self.config.vocab_size
+            )
+            targets_flat = targets.contiguous().view(-1)
+            loss = F.cross_entropy(logits_flat, targets_flat)
+
+        return logits, loss
