@@ -1226,3 +1226,29 @@ def plot_loss(loss_history, save_path="loss_curve.png"):
     plt.grid(True, alpha=0.3)
     plt.tight_layout(); plt.savefig(save_path, dpi=150); plt.close()
     print(f"Loss curve saved to {save_path}")
+
+#############################################################################################################################################################
+
+def load_checkpoint(checkpoint_path: str, device: torch.device):
+    """
+    WHAT: Load a trained GPT model from a saved checkpoint file.
+    WHY: After training, we save model state. To generate text,
+         we need to load this state back — weights, config, everything.
+    """
+    # WHAT: Load the checkpoint dictionary from disk
+    # WHY: map_location ensures it loads to the right device (CPU/GPU)
+    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+
+    # WHAT: Recreate the model from the saved config
+    model = GPT(checkpoint["config"])
+
+    # WHAT: Load the trained weights into the model
+    # WHY: state_dict contains every parameter value learned during training
+    model.load_state_dict(checkpoint["model_state_dict"])
+
+    model = model.to(device)  # Move to GPU
+    model.eval()              # Disable dropout for inference
+
+    print(f"Loaded model from step {checkpoint['step']}, "
+          f"loss: {checkpoint['loss']:.4f}")
+    return model
