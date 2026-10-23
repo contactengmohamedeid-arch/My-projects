@@ -69,7 +69,6 @@ class TokenizerConfig:
                                        #      small enough for fast matrix operations
 
 
-
 class SimpleTokenizer:
     """
     WHAT: Wraps tiktoken to give us a friendly, consistent interface.
@@ -194,9 +193,7 @@ if __name__ == "__main__":
 
     print(f"\n  Vocab size: {tokenizer.vocab_size:,}")
 
-
 #############################################################################################################################################################
-
 
 class Embedding(nn.Module):
     """
@@ -276,7 +273,6 @@ class Embedding(nn.Module):
         return embeddings
 
 #############################################################################################################################################################
-
 
 class RotaryPositionalEmbedding(nn.Module):
     """
@@ -397,7 +393,6 @@ class RotaryPositionalEmbedding(nn.Module):
         return (x * cos) + (self.rotate_half(x) * sin)
 
 #############################################################################################################################################################
-
 
 class MultiHeadAttention(nn.Module):
     """
@@ -610,7 +605,6 @@ class MultiHeadAttention(nn.Module):
 
         return output
 
-
 def create_causal_mask(seq_len: int, device: torch.device) -> torch.Tensor:
     """
     WHAT: Create a causal (lower triangular) attention mask.
@@ -706,7 +700,6 @@ class SwiGLU(nn.Module):
         #      Gate multiplies values element-wise, selectively passing info.
         return self.w3(F.silu(self.w1(x)) * self.w2(x))
 
-
 class TransformerBlock(nn.Module):
     """
     WHAT: One complete Transformer layer (attention + FFN with residuals).
@@ -768,3 +761,41 @@ class TransformerBlock(nn.Module):
         x = x + self.ffn(self.norm2(x))
 
         return x
+
+#############################################################################################################################################################
+
+@dataclass
+class GPTConfig:
+    """
+    WHAT: All hyperparameters in one place.
+    WHY: Changing model size is one line. No hunting through code.
+    """
+    # ===== Architecture =====
+    vocab_size: int = 50257        # WHAT: 50,257 unique tokens in GPT-2 vocabulary
+    d_model: int = 768             # WHAT: Each token becomes a 768-dim vector
+                                   # WHY: Bigger = more nuanced meanings, more compute
+    num_heads: int = 12            # WHAT: 12 attention heads (12 × 64 = 768)
+    num_layers: int = 12           # WHAT: 12 transformer blocks stacked
+                                   # WHY: Deeper = better reasoning, harder to train
+    max_seq_len: int = 1024        # WHAT: Max tokens model can process at once
+
+    # ===== Regularization (prevent overfitting) =====
+    dropout: float = 0.1           # WHAT: Randomly disable 10% of neurons during training
+    embd_dropout: float = 0.1      # WHAT: Dropout applied right after embedding lookup
+
+    # ===== Training =====
+    learning_rate: float = 3e-4    # WHAT: Step size for weight updates
+    weight_decay: float = 0.1      # WHAT: Penalize large weights (L2 regularization)
+    warmup_steps: int = 2000       # WHAT: Gradually increase LR for first 2000 steps
+    max_steps: int = 100000        # WHAT: Total training iterations
+    batch_size: int = 8            # WHAT: Sequences processed per GPU step
+    grad_accum_steps: int = 4      # WHAT: Accumulate gradient steps (effective batch = 8×4 = 32)
+    betas: tuple = (0.9, 0.95)    # WHAT: AdamW momentum coefficients
+    eps: float = 1e-8              # WHAT: Small constant preventing division by zero
+
+    def __post_init__(self):
+        """Validate configuration consistency."""
+        assert self.d_model % self.num_heads == 0, (
+            f"d_model ({self.d_model}) must be divisible by "
+            f"num_heads ({self.num_heads})"
+        )
