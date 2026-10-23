@@ -1289,42 +1289,4 @@ def generate_text(
     )
 
     # WHAT: Convert generated token IDs back to string
-    return tokenizer.decode(output_ids[0].tolist())
-
-
-
-# Load the trained model
-model = load_checkpoint("checkpoints/best_model.pt", device)
-
-# Test different generation strategies
-prompts = [
-    "Once upon a time, in a land far away,",
-    "The secret to happiness is",
-    "If I could travel anywhere in the world, I would go to",
-]
-
-for prompt in prompts:
-    print(f"\n{'='*60}")
-    print(f"Prompt: {prompt}")
-    print(f"{'='*60}")
-
-    # Conservative — good for facts
-    text = generate_text(
-        model, tokenizer, prompt, temperature=0.3, top_k=20,
-    )
-    print(f"\nConservative (T=0.3, K=20):")
-    print(f"  {text[:300]}")
-
-    # Balanced — good default
-    text = generate_text(
-        model, tokenizer, prompt, temperature=0.8, top_k=50, top_p=0.9,
-    )
-    print(f"\nBalanced (T=0.8, K=50, P=0.9):")
-    print(f"  {text[:300]}")
-
-    # Creative — good for writing
-    text = generate_text(
-        model, tokenizer, prompt, temperature=1.3, top_k=100, top_p=0.95,
-    )
-    print(f"\nCreative (T=1.3, K=100, P=0.95):")
-    print(f"  {text[:300]}")
+    return tokenizer.decode(output_ids[0].tolist()) 
