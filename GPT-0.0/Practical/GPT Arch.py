@@ -1021,3 +1021,13 @@ class TextDataset(Dataset):
         input_ids = self.tokens[start:end]
         target_ids = self.tokens[start + 1 : end + 1]
         return input_ids, target_ids
+
+def load_training_data(max_samples: int = None):
+    """Download WikiText-103 — clean Wikipedia text."""
+    print("Loading dataset: wikitext-103-raw-v1...")
+    dataset = load_dataset("Salesforce/wikitext", "wikitext-103-raw-v1", split="train")
+    texts = [item["text"] for item in dataset if item["text"].strip()]
+    if max_samples:
+        texts = texts[:max_samples]
+    print(f"Loaded {len(texts):,} documents")
+    return texts
