@@ -18,3 +18,8 @@ class ModelConfig:
     pad_id: int = 0
 
     tie_weights: bool = True
+
+    @property
+    def d_k(self):
+        """The width of one head's Query, Key and Value vectors."""
+        return self.d_model // self.n_heads
