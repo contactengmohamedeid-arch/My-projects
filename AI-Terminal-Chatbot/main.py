@@ -1,6 +1,13 @@
 import os
-from openai import OpenAI
 from dotenv import load_dotenv
+from openai import (
+    OpenAI,
+    AuthenticationError,
+    RateLimitError,
+    APITimeoutError,
+    APIConnectionError,
+    APIStatusError
+)
 
 
 # ==========================================
@@ -115,12 +122,28 @@ while True:
             "content": assistant_response
         })
 
+    except AuthenticationError:
+        print("\nError: Invalid API Key!")
+
+    except RateLimitError:
+        print("\nError: Rate limit exceeded. Try again later.")
+
+    except APITimeoutError:
+        print("\nError: Request timed out.")
+
+    except APIConnectionError:
+        print("\nError: Could not connect to the API.")
+
+    except APIStatusError as e:
+        print(f"\nAPI Error: {e.status_code}")
+
     except Exception as e:
+        print(f"\nUnexpected Error: {e}")
 
-        print(f"\n\nError: {e}\n")
+    finally:
+        print()
 
-        # Remove the unanswered user message
-        messages.pop()
+           
 
 
 # ==========================================
