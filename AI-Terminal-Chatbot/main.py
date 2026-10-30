@@ -1,151 +1,35 @@
-import os
-from dotenv import load_dotenv
-from openai import (
-    OpenAI,
-    AuthenticationError,
-    RateLimitError,
-    APITimeoutError,
-    APIConnectionError,
-    APIStatusError
-)
+from chatbot.conversation import chat
+from chatbot.storage import load_conversation, reset_conversation
 
 
-# ==========================================
-# 1. ENVIRONMENT CONFIGURATION
-# ==========================================
+def main():
+    messages = load_conversation()
 
-load_dotenv()
+    print("=" * 40)
+    print("       AI TERMINAL CHATBOT")
+    print("=" * 40)
+    print("Commands:")
+    print("  exit  - Close the chatbot")
+    print("  reset - Start a new conversation")
+    print("=" * 40)
 
-api_key = os.getenv("GROQ_API_KEY")
+    while True:
+        user_input = input("\nYou: ").strip()
 
-if not api_key:
-    raise ValueError("GROQ_API_KEY not found! Check your .env file.")
+        if not user_input:
+            continue
 
+        if user_input.lower() == "exit":
+            print("Goodbye!")
+            break
 
-# ==========================================
-# 2. INITIALIZE GROQ CLIENT
-# ==========================================
+        if user_input.lower() == "reset":
+            messages = reset_conversation()
+            print("Conversation has been reset!")
+            continue
 
-client = OpenAI(
-    api_key=api_key,
-    base_url="https://api.groq.com/openai/v1"
-)
-
-
-# ==========================================
-# 3. INITIALIZE CONVERSATION HISTORY
-# ==========================================
-
-messages = [
-    {
-        "role": "system",
-        "content": (
-            "You are a helpful AI assistant. "
-            "Give clear, accurate, and concise answers."
-        )
-    }
-]
+        messages = chat(messages, user_input)
 
 
-# ==========================================
-# 4. CHATBOT INTERFACE
-# ==========================================
-
-print("=" * 45)
-print("           AI TERMINAL CHATBOT")
-print("=" * 45)
-print("Type 'exit' to quit.\n")
-
-
-# ==========================================
-# 5. MAIN CHAT LOOP
-# ==========================================
-
-while True:
-
-    user_input = input("You: ").strip()
-
-    # Ignore empty messages
-    if not user_input:
-        continue
-
-    # Exit condition
-    if user_input.lower() == "exit":
-        print("\nAI: Goodbye!")
-        break
-
-    # Add user message to conversation history
-    messages.append({
-        "role": "user",
-        "content": user_input
-    })
-
-    try:
-
-        print("\nAI: ", end="", flush=True)
-
-        # ======================================
-        # 6. STREAMING API REQUEST
-        # ======================================
-
-        response = client.chat.completions.create(
-            model="openai/gpt-oss-20b",
-            messages=messages,
-            temperature=0.7,
-            stream=True
-        )
-
-        # ======================================
-        # 7. RECEIVE STREAMING CHUNKS
-        # ======================================
-
-        assistant_response = ""
-
-        for chunk in response:
-
-            content = chunk.choices[0].delta.content
-
-            if content is not None:
-
-                print(content, end="", flush=True)
-
-                assistant_response += content
-
-        print("\n")
-
-        # ======================================
-        # 8. UPDATE CONVERSATION HISTORY
-        # ======================================
-
-        messages.append({
-            "role": "assistant",
-            "content": assistant_response
-        })
-
-    except AuthenticationError:
-        print("\nError: Invalid API Key!")
-
-    except RateLimitError:
-        print("\nError: Rate limit exceeded. Try again later.")
-
-    except APITimeoutError:
-        print("\nError: Request timed out.")
-
-    except APIConnectionError:
-        print("\nError: Could not connect to the API.")
-
-    except APIStatusError as e:
-        print(f"\nAPI Error: {e.status_code}")
-
-    except Exception as e:
-        print(f"\nUnexpected Error: {e}")
-
-    finally:
-        print()
-
-           
-
-
-# ==========================================
-# END OF PROGRAM
-# ==========================================
+if __name__ == "__main__":
+    main()
