@@ -2,39 +2,63 @@ import os
 from openai import OpenAI
 from dotenv import load_dotenv
 
-# 1. Load environment variables
+
+# ==========================================
+# 1. ENVIRONMENT CONFIGURATION
+# ==========================================
+
 load_dotenv()
 
 api_key = os.getenv("GROQ_API_KEY")
 
 if not api_key:
-    raise ValueError("GROQ_API_KEY not found!")
+    raise ValueError("GROQ_API_KEY not found! Check your .env file.")
 
-# 2. Initialize Groq client
+
+# ==========================================
+# 2. INITIALIZE GROQ CLIENT
+# ==========================================
+
 client = OpenAI(
     api_key=api_key,
     base_url="https://api.groq.com/openai/v1"
 )
 
-# 3. Initialize conversation history
+
+# ==========================================
+# 3. INITIALIZE CONVERSATION HISTORY
+# ==========================================
+
 messages = [
     {
         "role": "system",
-        "content": "You are a helpful AI assistant. Give clear and concise answers."
+        "content": (
+            "You are a helpful AI assistant. "
+            "Give clear, accurate, and concise answers."
+        )
     }
 ]
 
-# 4. Chatbot interface
-print("=" * 40)
-print("       AI TERMINAL CHATBOT")
-print("=" * 40)
+
+# ==========================================
+# 4. CHATBOT INTERFACE
+# ==========================================
+
+print("=" * 45)
+print("           AI TERMINAL CHATBOT")
+print("=" * 45)
 print("Type 'exit' to quit.\n")
+
+
+# ==========================================
+# 5. MAIN CHAT LOOP
+# ==========================================
 
 while True:
 
-    # Get user input
     user_input = input("You: ").strip()
 
+    # Ignore empty messages
     if not user_input:
         continue
 
@@ -43,32 +67,62 @@ while True:
         print("\nAI: Goodbye!")
         break
 
-    # Add user message to history
+    # Add user message to conversation history
     messages.append({
         "role": "user",
         "content": user_input
     })
 
     try:
-        print("\nThinking...")
 
-        # Send conversation history to LLM
+        print("\nAI: ", end="", flush=True)
+
+        # ======================================
+        # 6. STREAMING API REQUEST
+        # ======================================
+
         response = client.chat.completions.create(
             model="openai/gpt-oss-20b",
             messages=messages,
-            temperature=0.7
+            temperature=0.7,
+            stream=True
         )
 
-        # Extract AI response
-        assistant_response = response.choices[0].message.content
+        # ======================================
+        # 7. RECEIVE STREAMING CHUNKS
+        # ======================================
 
-        # Add AI response to history
+        assistant_response = ""
+
+        for chunk in response:
+
+            content = chunk.choices[0].delta.content
+
+            if content is not None:
+
+                print(content, end="", flush=True)
+
+                assistant_response += content
+
+        print("\n")
+
+        # ======================================
+        # 8. UPDATE CONVERSATION HISTORY
+        # ======================================
+
         messages.append({
             "role": "assistant",
             "content": assistant_response
         })
 
-        print(f"\nAI: {assistant_response}\n")
-
     except Exception as e:
-        print(f"\nError: {e}\n")
+
+        print(f"\n\nError: {e}\n")
+
+        # Remove the unanswered user message
+        messages.pop()
+
+
+# ==========================================
+# END OF PROGRAM
+# ==========================================
