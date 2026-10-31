@@ -1,6 +1,6 @@
 from chatbot.conversation import chat
 from chatbot.storage import load_conversation, reset_conversation
-
+from chatbot.storage import load_conversation, reset_conversation, clear_summary
 
 def main():
     messages = load_conversation()
@@ -25,7 +25,8 @@ def main():
 
         if user_input.lower() == "reset":
             messages = reset_conversation()
-            print("Conversation has been reset!")
+            clear_summary()
+            print("Conversation and summary cleared.")
             continue
 
         messages = chat(messages, user_input)

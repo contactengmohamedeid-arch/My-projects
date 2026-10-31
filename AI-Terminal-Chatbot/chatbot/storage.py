@@ -117,3 +117,10 @@ def load_summary():
     except (json.JSONDecodeError, ValueError, OSError) as error:
         print(f"Error loading summary: {error}")
         return ""
+
+
+
+def clear_summary():
+    """Delete the saved conversation summary."""
+    if os.path.exists(SUMMARY_FILE):
+        os.remove(SUMMARY_FILE)
