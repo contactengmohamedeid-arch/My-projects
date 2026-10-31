@@ -129,7 +129,7 @@ def build_context(system_prompt, summary, recent_messages):
 
 
 def select_messages_for_summary(messages, keep_recent_turns=3):
-    """Separate older complete turns from recent conversation turns."""
+    """Separate older complete turns from recent messages."""
 
     system_message = next(
         (m for m in messages if m["role"] == "system"),
@@ -156,10 +156,11 @@ def select_messages_for_summary(messages, keep_recent_turns=3):
             turns.append(current_turn)
             current_turn = []
 
-    # Keep the newest turns unchanged
-    recent_turns = turns[-keep_recent_turns:]
+    # Preserve an unfinished turn (a user message without an AI response)
+    if current_turn:
+        turns.append(current_turn)
 
-    # Older turns will be summarized
+    recent_turns = turns[-keep_recent_turns:]
     old_turns = turns[:-keep_recent_turns]
 
     old_messages = [
@@ -173,8 +174,5 @@ def select_messages_for_summary(messages, keep_recent_turns=3):
         for turn in recent_turns
         for message in turn
     ]
-
-    if system_message:
-        recent_messages.insert(0, system_message)
 
     return old_messages, recent_messages
