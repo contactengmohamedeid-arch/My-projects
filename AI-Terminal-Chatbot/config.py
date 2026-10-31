@@ -28,7 +28,6 @@ TEMPERATURE = 0.7
 
 SYSTEM_PROMPT = "You are a helpful AI assistant."
 
-
 # =========================
 # Storage Configuration
 # =========================
@@ -42,6 +41,10 @@ CONVERSATION_FILE = os.path.join(
     "conversations.json"
 )
 
+SUMMARY_FILE = os.path.join(
+    CONVERSATION_DIR,
+    "summary.json"
+)
 
 # =========================
 # Configuration Validation
@@ -51,3 +54,6 @@ if not API_KEY:
     raise ValueError(
         "GROQ_API_KEY is missing. Check your .env file."
     )
+
+MAX_CONTEXT_TOKENS = 4000
+SUMMARY_TRIGGER_TOKENS = 3000

@@ -1,7 +1,7 @@
 import os
 import json
 
-from config import CONVERSATION_FILE, SYSTEM_PROMPT
+from config import CONVERSATION_FILE, SUMMARY_FILE, SYSTEM_PROMPT
 
 
 def save_conversation(messages):
@@ -73,3 +73,47 @@ def reset_conversation():
     save_conversation(messages)
 
     return messages
+
+
+def save_summary(summary):
+    """Save conversation summary to a JSON file."""
+
+    try:
+        with open(SUMMARY_FILE, "w", encoding="utf-8") as file:
+            json.dump(
+                {"summary": summary},
+                file,
+                indent=4,
+                ensure_ascii=False
+            )
+
+        return True
+
+    except OSError as error:
+        print(f"Error saving summary: {error}")
+        return False
+
+
+def load_summary():
+    """Load conversation summary from a JSON file."""
+
+    if not os.path.exists(SUMMARY_FILE):
+        return ""
+
+    try:
+        with open(SUMMARY_FILE, "r", encoding="utf-8") as file:
+            data = json.load(file)
+
+        if not isinstance(data, dict):
+            raise ValueError("Invalid summary format.")
+
+        summary = data.get("summary", "")
+
+        if not isinstance(summary, str):
+            raise ValueError("Summary must be a string.")
+
+        return summary
+
+    except (json.JSONDecodeError, ValueError, OSError) as error:
+        print(f"Error loading summary: {error}")
+        return ""
