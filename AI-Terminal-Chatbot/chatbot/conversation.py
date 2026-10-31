@@ -1,5 +1,6 @@
 from chatbot.client import client
 from chatbot.storage import save_conversation
+from chatbot.token_manager import manage_context
 from config import MODEL, TEMPERATURE
 from openai import (
     RateLimitError,
@@ -24,9 +25,14 @@ def chat(messages, user_input):
     try:
         print("\nAI: ", end="", flush=True)
 
+        context_messages = manage_context(
+            updated_messages,
+            max_tokens=4000
+        )
+
         response = client.chat.completions.create(
             model=MODEL,
-            messages=updated_messages,
+            messages=context_messages,
             stream=True,
             temperature=TEMPERATURE,
             timeout=30

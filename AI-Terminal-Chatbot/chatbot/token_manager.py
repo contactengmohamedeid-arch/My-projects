@@ -29,38 +29,59 @@ def count_tokens(messages):
 
 def manage_context(messages, max_tokens=4000):
     """
-    Keep the system prompt and the most recent messages
-    within the specified token budget.
+    Keep the system prompt and the most recent complete
+    user-assistant conversation turns.
     """
 
     system_message = None
     conversation = []
 
-    # Separate system message from conversation
+    # Separate system prompt from conversation
     for message in messages:
         if message["role"] == "system":
             system_message = message
         else:
             conversation.append(message)
 
-    # Start with the system prompt
     result = [system_message] if system_message else []
 
-    # Calculate remaining token budget
     remaining_tokens = max_tokens - count_tokens(result)
 
-    # Keep recent messages first
-    recent_messages = []
+    if remaining_tokens <= 0:
+        raise ValueError("System prompt exceeds the token budget.")
 
-    for message in reversed(conversation):
-        message_tokens = count_tokens([message])
+    # Group messages into conversation turns
+    turns = []
+    current_turn = []
 
-        if message_tokens <= remaining_tokens:
-            recent_messages.insert(0, message)
-            remaining_tokens -= message_tokens
+    for message in conversation:
+        if message["role"] == "user":
+            if current_turn:
+                turns.append(current_turn)
+
+            current_turn = [message]
+
+        elif message["role"] == "assistant":
+            if current_turn:
+                current_turn.append(message)
+                turns.append(current_turn)
+                current_turn = []
+
+    # Ignore incomplete turns for now
+    # Process newest complete turns first
+    selected_turns = []
+
+    for turn in reversed(turns):
+        turn_tokens = count_tokens(turn)
+
+        if turn_tokens <= remaining_tokens:
+            selected_turns.insert(0, turn)
+            remaining_tokens -= turn_tokens
         else:
             break
 
-    result.extend(recent_messages)
+    # Flatten turns into a single message list
+    for turn in selected_turns:
+        result.extend(turn)
 
     return result
